@@ -4,7 +4,7 @@ const router = express.Router();
 
 // Internal modules
 const Incident = require('../models/incident');
-const { INCIDENT_TYPES, DISTRICTS, PRIORITY_LEVELS } = require('../config/constants.js');
+const { INCIDENT_TYPES, DISTRICTS, PRIORITY_LEVELS } = require('../config/constants');
 
 
 // GET /api/incidents/
@@ -172,7 +172,7 @@ router.get('/archive/:yyyy{/:mm}{/:dd}{/:field}', async (req, res) => {
 });
 
 // POST /api/incidents/
-// Create a new incident record [cite: 27]
+// Create a new incident record
 router.post('/', async (req, res) => {
     try {
         const incident = new Incident({
@@ -186,7 +186,15 @@ router.post('/', async (req, res) => {
             isAnalysed: false
         });
 
-        const newIncident = await incident.save();
+        const newIncident = await Incident.save();
+
+        // Trigger batchOoptimiser if pending counts reach threshold
+        const pendingCount = await Incident.countDocuments({ isAnalysed: false });
+        if (pendingCount >= 5) {
+            console.log("Triggering Batch Optimiser. Pending Count threshold met.");
+            // batchOptimiser();
+        }
+
         console.log(`Record INSERTED | Incident ID: ${newIncident.id} | IP: ${req.clientIP}`);
         res.status(200).json({ message: "Insert success.", ObjectID: newIncident.id, UpdateID: newIncident.description[0].id });
     } catch (err) {
