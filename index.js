@@ -88,6 +88,12 @@ mongoose.connect('mongodb://3011-mongo/trafficDB')
         console.log(`Connection error: ${err}`);
     })
 
+// Log request IP address.
+app.use((req, res, next) => {
+    req.clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    next();
+});
+
 // Default landing
 app.get('/', (req, res) => {
     res.send('Smart Transport System is currently running....');

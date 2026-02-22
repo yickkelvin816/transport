@@ -1,6 +1,9 @@
 // Required Packages
 const mongoose = require('mongoose');
 
+// Internal modules
+const { INCIDENT_TYPES, DISTRICTS } = require('../config/constants');
+
 // Define Schema of trafficDB
 const incidentSchema = new mongoose.Schema({
     title: {
@@ -10,24 +13,13 @@ const incidentSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: [
-            'Accident',            // Traffic accidents (Minor/Major)
-            'Vehicle Breakdown',   // 壞車 (Very common in tunnels/bridges)
-            'Road Works',          // 道路工程 / 渠務工程
-            'Emergency Repair',    // 水管爆裂 / 緊急維修
-            'Road Closure',        // 封路 (Usually for events or major repairs)
-            'Traffic Jam',         // 交通擠塞 (Purely volume-related, no specific incident)
-            'Public Transport',    // MTR/Bus delays or special service notices
-            'Special Event',       // 年宵 / 煙花 / 馬拉松 (Planned events)
-            'Weather Related',     // Flooding / Landslide / Strong Wind measures
-            'Others'
-        ]
+        enum: INCIDENT_TYPES
     },
     description: [
         {
             timestamp: {
-                type: Date,
-                default: Date.now
+                type: Date
+                //default: Date.now
             },
             text: {
                 type: String,
@@ -42,12 +34,7 @@ const incidentSchema = new mongoose.Schema({
     district: {
         type: String,
         required: true,
-        enum: [
-            'Central and Western', 'Wan Chai', 'Eastern', 'Southern', 'Yau Tsim Mong',
-            'Sham Shui Po', 'Kowloon City', 'Wong Tai Sin', 'Kwun Tong', 'Tsuen Wan',
-            'Tuen Mun', 'Yuen Long', 'North', 'Tai Po', 'Sai Kung', 'Sha Tin',
-            'Kwai Tsing', 'Islands'
-        ]
+        enum: DISTRICTS
     },
     severity: {
         type: Number,
