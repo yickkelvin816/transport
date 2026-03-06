@@ -227,7 +227,7 @@ router.delete('/:id/update/:updateId', async (req, res) => {
             req.params.id,
             {
                 $pull: { description: { _id: req.params.updateId } },
-                $set: { isAnalyzed: false }
+                $set: { isAnalysed: false }
             },
             { new: true }
         );
@@ -259,7 +259,7 @@ router.patch('/:id/update/:updateId', async (req, res) => {
             {
                 $set: {
                     "description.$.text": text, // The '$' matches the correct array index
-                    isAnalyzed: false
+                    isAnalysed: false
                 }
             },
             { new: true }

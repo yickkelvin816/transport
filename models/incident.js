@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 
 // Internal modules
-const { INCIDENT_TYPES, DISTRICTS } = require('../config/constants');
+const { INCIDENT_TYPES, DISTRICTS, INCIDENT_STATUS } = require('../config/constants');
 
 // Define Schema of trafficDB
 const incidentSchema = new mongoose.Schema({
@@ -44,8 +44,8 @@ const incidentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['on-going', 'cleared', 'investigating'],
-        default: 'investigating'
+        enum: INCIDENT_STATUS,
+        default: INCIDENT_STATUS[2]
     },
     timestamp: {
         type: Date,
@@ -65,6 +65,6 @@ const incidentSchema = new mongoose.Schema({
 })
 
 // Optimization: Add a standard index for the flag to speed up batch processing
-incidentSchema.index({ isAnalyzed: 1 });
+incidentSchema.index({ isAnalysed: 1 });
 
 module.exports = mongoose.model("Incident", incidentSchema);

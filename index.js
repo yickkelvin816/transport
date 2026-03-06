@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const incidentRoute = require('./routes/incidentRoute');
 const Incident = require('./models/incident');
 const { batchOptimiser } = require('./utils/optimiser');
+const { scrapeAndConsolidate } = require('./services/scraperService');
 
 const app = express()
 const PORT = 3000;
@@ -14,15 +15,24 @@ const PORT = 3000;
 app.use(express.json());
 
 // Connect MongoDB
-mongoose.connect('mongodb://3011-mongo/trafficDB')
+mongoose.connect(process.env.MONGO_URI)
     .then(async () => {
         console.log('Connected to MongoDB.');
 
+        await scrapeAndConsolidate();
+
+        // Crawl traffic news every 10 minutes. (Mock-up user submission);
+        console.log(`[Set] Scrape traffic news every 10 minutes.`)
+        setInterval(async () => {
+            await scrapeAndConsolidate();
+        }, 10 * 60 * 1000);
+
         // Trigger Optimiser if reaching threshold.
         const pendingCount = await Incident.countDocuments({ isAnalysed: false });
+        console.log(`Debug: Found ${pendingCount} pending documents.`);
         if (pendingCount >= 5) {
             console.log("Triggering Batch Optimiser. Pending Count threshold met.");
-            batchOptimiser();
+            // batchOptimiser();
         }
     })
     .catch(err => {
