@@ -27,7 +27,9 @@ router.get('/', async (req, res) => {
 // Returns all active incidents where the status is on-going or investigating, in reverse chronological order.
 router.get('/live', async (req, res) => {
     try {
-        const result = await Incident.find({ status: { $in: ['on-going', 'investigating'] } }).sort({ timestamp: -1 });
+        const result = await Incident.find({ status: { $in: ['on-going', 'investigating'] } })
+            .select('-embeddings -isAnalysed -__v')
+            .sort({ timestamp: -1 });
         if (!result) {
             res.status(400);
             res.json("No records");
@@ -43,7 +45,7 @@ router.get('/live', async (req, res) => {
 // Retrieves a specific incident by Object ID
 router.get('/:id', async (req, res) => {
     try {
-        const result = await Incident.findById(req.params.id);
+        const result = await Incident.findById(req.params.id).select('-embeddings -isAnalysed -__v');
         if (!result) {
             res.status(404);
             res.json("No records");
@@ -163,7 +165,7 @@ router.get('/archive/:yyyy{/:mm}{/:dd}{/:field}', async (req, res) => {
         }
     }
 
-    const results = await Incident.find(query);
+    const results = await Incident.find(query).select('-embeddings -isAnalysed -__v');
     if (!results) {
         res.status(400);
         res.json("No records");

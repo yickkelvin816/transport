@@ -18,7 +18,7 @@ const { getEmbedding, processBatchIncidents } = require('./aiService');
 
 async function scrapeAndConsolidate() {
     // Default: crawl only today's traffic incidents in Hong Kong Time.
-    const { data } = await axios.get('https://programme.rthk.hk/channel/radio/trafficnews/index.php?d=20260307');
+    const { data } = await axios.get('https://programme.rthk.hk/channel/radio/trafficnews/index.php');
     const $ = cheerio.load(data);
     const tempBatch = [];
 
