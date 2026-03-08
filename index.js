@@ -1,12 +1,14 @@
 // Required Packages
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 
 // Internal modules
 const incidentRoute = require('./routes/incidentRoute');
+const adviceRoute = require('./routes/adviceRoute');
 const Incident = require('./models/incident');
 const { batchOptimiser } = require('./utils/optimiser');
-const { scrapeAndConsolidate } = require('./services/scraperService');
+const {scrapeAndConsolidate} = require('./services/scraperService');
 
 const app = express()
 const PORT = 3000;
@@ -22,17 +24,18 @@ mongoose.connect(process.env.MONGO_URI)
         await scrapeAndConsolidate();
 
         // Crawl traffic news every 10 minutes. (Mock-up user submission);
-        console.log(`[Set] Scrape traffic news every 10 minutes.`)
+        console.log(`[Set] Scrape traffic news in every 15 minutes.`)
         setInterval(async () => {
             await scrapeAndConsolidate();
-        }, 10 * 60 * 1000);
+            console.log(`[Set] Scrape traffic news after 15 minutes.`)
+        }, 15 * 60 * 1000);
 
         // Trigger Optimiser if reaching threshold.
         const pendingCount = await Incident.countDocuments({ isAnalysed: false });
         console.log(`Debug: Found ${pendingCount} pending documents.`);
         if (pendingCount >= 5) {
             console.log("Triggering Batch Optimiser. Pending Count threshold met.");
-            // batchOptimiser();
+            batchOptimiser();
         }
     })
     .catch(err => {
@@ -50,8 +53,11 @@ app.get('/', (req, res) => {
     res.send('Smart Transport System is currently running....');
 })
 
-// Link to router
+// Link to router: incidentRoute
 app.use('/api/incidents', incidentRoute);
+
+// Link to router: adviceRoute
+app.use('/api/advice', adviceRoute);
 
 // Error handler
 app.use((err, req, res, next) => {

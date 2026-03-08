@@ -6,6 +6,8 @@ const cheerio = require('cheerio');
 const Incident = require('../models/incident');
 const { getEmbedding, processBatchIncidents } = require('./aiService');
 
+const targetDate = new Date();
+
 /** DISCLAIMER AND NOTICE OF COMPLIANCE :
  * This scraper is developed strictly for educational, non-commercial research purpose as part of academic coursework
  * for COMP3011 Web Services and Web Data of University of Leeds.
@@ -16,9 +18,10 @@ const { getEmbedding, processBatchIncidents } = require('./aiService');
  * * This project is not affiliated with RTHK.
 **/
 
-async function scrapeAndConsolidate() {
+async function scrapeAndConsolidate(dateString = "20260308") {
     // Default: crawl only today's traffic incidents in Hong Kong Time.
-    const { data } = await axios.get('https://programme.rthk.hk/channel/radio/trafficnews/index.php');
+    console.log(`Scraper Service: fetching current traffic news... ${dateString}`);
+    const { data } = await axios.get(`https://programme.rthk.hk/channel/radio/trafficnews/index.php?d=${dateString}`);
     const $ = cheerio.load(data);
     const tempBatch = [];
 
@@ -38,40 +41,51 @@ async function scrapeAndConsolidate() {
             });
         }
     });
+    console.log(`${tempBatch.length} new records fetched.`)
 
     if (tempBatch.length > 0) {
-        console.log(`${tempBatch.length} new records fetched.`)
         // Consult genAI and obtain JSON file to insert into database
-        const consolidatedData = await processBatchIncidents(tempBatch);
 
-        for (const item of consolidatedData) {
-            // Check for duplicates
-            const exists = await Incident.findOne({ title: item.title });
+        const CHUNK_SIZE = 100;
+        for (let i = 0; i < tempBatch.length; i += CHUNK_SIZE) {
+            const chunk = tempBatch.slice(i, i + CHUNK_SIZE);
+            console.log(`Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(tempBatch.length / CHUNK_SIZE)}...`);
 
-            if (!exists) {
-                // Generate embedding for new title
-                const vector = await getEmbedding(item.title);
+            try {
+                const consolidatedData = await processBatchIncidents(chunk);
 
-                // Format the descriptions to ensure timestamps are valid Date objects
-                const formattedDescriptions = item.description.map(desc => ({
-                    text: desc.text,
-                    timestamp: new Date(desc.timestamp)
-                }));
+                for (const item of consolidatedData) {
+                    // Generate embedding for the incoming incident title
+                    const vector = await getEmbedding(item.title);
 
-                await Incident.create({
-                    title: item.title,
-                    type: item.type,
-                    description: formattedDescriptions,
-                    venue: item.venue,
-                    district: item.district,
-                    severity: item.severity,
-                    status: item.status,
-                    timestamp: new Date(item.timestamp),
-                    embeddings: vector,
-                    isAnalysed: true
-                });
+                    // Create new incident. Assume each of the incidents is distinct.
+                    const formattedDescriptions = item.description.map(desc => ({
+                        text: desc.text,
+                        timestamp: new Date(desc.timestamp)
+                    }));
+
+                    await Incident.create({
+                        title: item.title,
+                        type: item.type,
+                        description: formattedDescriptions,
+                        venue: item.venue,
+                        district: item.district,
+                        severity: item.severity,
+                        status: item.status,
+                        timestamp: new Date(item.timestamp),
+                        embeddings: vector, // Store the vector for future comparisons
+                        isAnalysed: true
+                    });
+
+                    console.log(`New record created: ${item.title}`);
+
+                }
+                console.log(`${consolidatedData.length} records added.`)
+            } catch (aiError) {
+                console.error("Chunk processing failed:", aiError.message);
+            } finally {
+                console.log(`Scapper service ends.`);
             }
-            console.log(`New record: ${item.title}`);
         }
     }
 }
