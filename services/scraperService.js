@@ -18,10 +18,10 @@ const targetDate = new Date();
  * * This project is not affiliated with RTHK.
 **/
 
-async function isDuplicate(vector, recordTimestamp) {
-    const startDate = new Date(recordTimestamp);
+async function isDuplicate(vector, record) {
+    const startDate = new Date(record.timestamp);
     startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(recordTimestamp);
+    const endDate = new Date(record.timestamp);
     endDate.setHours(23, 59, 59, 999);
 
     const similarIncidents = await Incident.aggregate([
@@ -33,18 +33,30 @@ async function isDuplicate(vector, recordTimestamp) {
                 numCandidates: 10,
                 limit: 1,
                 filter: {
-                    timestamp: { $gte: startDate, $lte: endDate }
+                    $and: [
+                        { district: { $eq: record.district } },
+                        { timestamp: { $gte: startDate, $lte: endDate } }
+                    ]
                 }
             }
         },
         {
             $project: {
+                _id: 1,
                 score: { $meta: "vectorSearchScore" }
             }
         }
     ]);
 
-    return similarIncidents.length > 0 && similarIncidents[0].score > 0.9;
+    if (similarIncidents.length > 0) {
+        const topMatch = similarIncidents[0];
+        console.log(`${topMatch.score} to Object id: ${topMatch._id}`);
+
+        // Return true only if it meets threshold
+        return topMatch.score > 0.95;
+    }
+
+    return false;
 }
 
 async function scrapeAndConsolidate(dateString = "") {
@@ -88,9 +100,9 @@ async function scrapeAndConsolidate(dateString = "") {
                     const vector = await getEmbedding(item.title);
 
                     // Check for duplication of record on same day
-                    const duplicateFound = await isDuplicate(vector, item.timestamp);
+                    const duplicateFound = await isDuplicate(vector, item);
                     if (duplicateFound) {
-                        //console.log(`Skipping duplicate: ${item.title}`);
+                        console.log(`Skipping duplicate: ${item.title}`);
                         continue;
                     }
 
