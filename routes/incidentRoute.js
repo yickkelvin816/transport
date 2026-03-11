@@ -5,29 +5,36 @@ const router = express.Router();
 // Internal modules
 const Incident = require('../models/incident');
 const { INCIDENT_TYPES, DISTRICTS, PRIORITY_LEVELS } = require('../config/constants');
+const {deduplicateTrafficRecords} = require('../utils/optimiser');
+
+// DATE of today
+const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0);
+const todayEnd = new Date();
+todayEnd.setHours(23, 59, 59, 999);
 
 
 // GET /api/incidents/
 // Returns all incidents in reverse chronological order.
-router.get('/', async (req, res) => {
-    try {
-        const result = await Incident.find().sort({ timestamp: -1 });
-        if (!result) {
-            res.status(400);
-            res.json("No records");
-        }
-        res.json(result);
-    } catch (err) {
-        res.status(500);
-        res.json({ message: err.message });
-    }
-})
+// router.get('/', async (req, res) => {
+//     try {
+//         const result = await Incident.find().sort({ timestamp: -1 });
+//         if (!result) {
+//             res.status(400);
+//             res.json("No records");
+//         }
+//         res.json(result);
+//     } catch (err) {
+//         res.status(500);
+//         res.json({ message: err.message });
+//     }
+// })
 
 // GET /api/incidents/live
 // Returns all active incidents where the status is on-going or investigating, in reverse chronological order.
 router.get('/live', async (req, res) => {
     try {
-        const result = await Incident.find({ status: { $in: ['on-going', 'investigating'] } })
+        const result = await Incident.find({ status: { $in: ['on-going', 'investigating'] }, timestamp: { $gte: todayStart, $lte: todayEnd } })
             .select('-embeddings -isAnalysed -__v')
             .sort({ timestamp: -1 });
         if (!result) {
@@ -123,14 +130,65 @@ router.get('/archive/:yyyy{/:mm}{/:dd}{/:field}', async (req, res) => {
                         "topDistricts": [
                             { $group: { _id: "$district", count: { $sum: 1 } } },
                             { $sort: { count: -1 } },
-                            { $limit: 3 }
+                            { $limit: 5 }
                         ],
                         "commonTypes": [
-                            { $group: { _id: "$type", count: { $sum: 1 } } },
-                            { $sort: { count: -1 } },
-                            { $limit: 3 }
+                            {
+                                $addFields: {
+                                    lastUpdate: { $arrayElemAt: ["$description.timestamp", -1] }
+                                }
+                            },
+                            {
+                                // Step 1: Group by both Type and District to get sub-counts
+                                $group: {
+                                    _id: { type: "$type", district: "$district" },
+                                    districtCount: { $sum: 1 },
+                                    // Keep track of resolution times for the type average later
+                                    totalResolveTime: {
+                                        $sum: {
+                                            $cond: [
+                                                { $eq: ["$status", "cleared"] },
+                                                { $dateDiff: { startDate: "$timestamp", endDate: "$lastUpdate", unit: "minute" } },
+                                                0
+                                            ]
+                                        }
+                                    },
+                                    clearedCount: {
+                                        $sum: { $cond: [{ $eq: ["$status", "cleared"] }, 1, 0] }
+                                    }
+                                }
+                            },
+                            {
+                                // Step 2: Regroup by Type to create the nested district list
+                                $group: {
+                                    _id: "$_id.type",
+                                    totalCount: { $sum: "$districtCount" },
+                                    avgResolveTime: {
+                                        $avg: { $cond: [{ $gt: ["$clearedCount", 0] }, { $divide: ["$totalResolveTime", "$clearedCount"] }, null] }
+                                    },
+                                    districts: {
+                                        $push: {
+                                            district: "$_id.district",
+                                            count: "$districtCount"
+                                        },
+                                    },
+                                }
+                            },
+                            {
+                                // Step 3: Sort the nested districts and slice to top 5
+                                $set: {
+                                    districts: {
+                                        $slice: [
+                                            { $sortArray: { input: "$districts", sortBy: { count: -1 } } },
+                                            5
+                                        ]
+                                    }
+                                }
+                            },
+                            { $sort: { totalCount: -1 } },
+                            { $limit: 8 }
                         ],
-                        "avgSolveTime": [
+                        "avgSeveritySolveTime": [
                             { $match: { status: "cleared" } },
                             {
                                 $addFields: {
@@ -188,13 +246,13 @@ router.post('/', async (req, res) => {
             isAnalysed: false
         });
 
-        const newIncident = await Incident.save();
+        const newIncident = await incident.save();
 
         // Trigger batchOoptimiser if pending counts reach threshold
         const pendingCount = await Incident.countDocuments({ isAnalysed: false });
         if (pendingCount >= 5) {
             console.log("Triggering Batch Optimiser. Pending Count threshold met.");
-            // batchOptimiser();
+            deduplicateTrafficRecords();
         }
 
         console.log(`Record INSERTED | Incident ID: ${newIncident.id} | IP: ${req.clientIP}`);

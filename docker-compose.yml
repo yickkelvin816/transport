@@ -1,0 +1,24 @@
+services:
+  # The Node.js application service
+  transport-api:
+    build: .
+    container_name: transport-api-node
+    restart: always
+    ports:
+      - "3000:3000" # Main Express API port
+    environment:
+      # These will be overridden by your .env file in the root
+      - PORT=3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MONGODB_URI=${MONGODB_URI}
+      - NODE_ENV=development
+    volumes:
+      # Map the current directory to the working directory in the container
+      - .:/usr/src/app
+      # Anonymous volume for node_modules to avoid host permission issues
+      - /usr/src/app/node_modules
+    working_dir: /usr/src/app
+    # Uses nodemon for hot-reloading
+    command: npm run dev 
+    stdin_open: true
+    tty: true

@@ -1,0 +1,12 @@
+{
+    "trafficVolume": 0.35,
+    "accidents": 0.15,
+    "weather": 0.12,
+    "illegalParking": 0.10,
+    "roadworks": 0.08,
+    "transportDisruptions": 0.06,
+    "breakdowns": 0.05,
+    "bottlenecks": 0.04,
+    "pedestrianVolume": 0.03,
+    "specialEvents": 0.02
+}

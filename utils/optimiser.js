@@ -1,12 +1,13 @@
 // Internal modules
 const Incident = require('../models/incident');
-const { getEmbedding, askGeminiIfSame } = require('../services/aiService')
+const { getEmbedding, askGeminiIfSame } = require('../services/aiService');
+const { DISTRICTS } = require('../config/constants');
 
 // lock - prevent data race
 let isOptimising = false;
 
 // Analyse and Merge new records, added manually using CRUD.
-const batchOptimiser = async () => {
+const deduplicateTrafficRecords = async () => {
     if (isOptimising) {
         console.log("Optimiser is running. Skip this cycle.");
         return;
@@ -87,4 +88,4 @@ const batchOptimiser = async () => {
     }
 };
 
-module.exports = { batchOptimiser };
+module.exports = { deduplicateTrafficRecords };

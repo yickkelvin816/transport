@@ -18,7 +18,36 @@ const targetDate = new Date();
  * * This project is not affiliated with RTHK.
 **/
 
-async function scrapeAndConsolidate(dateString = "20260308") {
+async function isDuplicate(vector, recordTimestamp) {
+    const startDate = new Date(recordTimestamp);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(recordTimestamp);
+    endDate.setHours(23, 59, 59, 999);
+
+    const similarIncidents = await Incident.aggregate([
+        {
+            $vectorSearch: {
+                index: "vector_index",
+                path: "embeddings",
+                queryVector: vector,
+                numCandidates: 10,
+                limit: 1,
+                filter: {
+                    timestamp: { $gte: startDate, $lte: endDate }
+                }
+            }
+        },
+        {
+            $project: {
+                score: { $meta: "vectorSearchScore" }
+            }
+        }
+    ]);
+
+    return similarIncidents.length > 0 && similarIncidents[0].score > 0.9;
+}
+
+async function scrapeAndConsolidate(dateString = "") {
     // Default: crawl only today's traffic incidents in Hong Kong Time.
     console.log(`Scraper Service: fetching current traffic news... ${dateString}`);
     const { data } = await axios.get(`https://programme.rthk.hk/channel/radio/trafficnews/index.php?d=${dateString}`);
@@ -58,6 +87,13 @@ async function scrapeAndConsolidate(dateString = "20260308") {
                     // Generate embedding for the incoming incident title
                     const vector = await getEmbedding(item.title);
 
+                    // Check for duplication of record on same day
+                    const duplicateFound = await isDuplicate(vector, item.timestamp);
+                    if (duplicateFound) {
+                        //console.log(`Skipping duplicate: ${item.title}`);
+                        continue;
+                    }
+
                     // Create new incident. Assume each of the incidents is distinct.
                     const formattedDescriptions = item.description.map(desc => ({
                         text: desc.text,
@@ -77,10 +113,10 @@ async function scrapeAndConsolidate(dateString = "20260308") {
                         isAnalysed: true
                     });
 
-                    console.log(`New record created: ${item.title}`);
+                    //console.log(`New record created: ${item.title}`);
 
                 }
-                console.log(`${consolidatedData.length} records added.`)
+                console.log(`${consolidatedData.length} records analysed.`)
             } catch (aiError) {
                 console.error("Chunk processing failed:", aiError.message);
             } finally {
