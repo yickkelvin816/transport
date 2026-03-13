@@ -54,7 +54,8 @@ To enable the AI Deduplication and Similarity Search features, you must configur
 
 * Historical Analysis: Aggregates a 12-month rolling window of district data to provide reliability scores (0.0-10.0) based on weighted factors like illegal parking and roadworks.
 
-#### Core Endpoints
+#### 5. API Specification 
+Refer to the external link for full API specification. [Click here](https://leeds365-my.sharepoint.com/:b:/g/personal/bwzs0103_leeds_ac_uk/IQBqW0uLNoZ2SZ4j4lLB7tCmAV14IwYhhT-mXhBU4kvLn34?e=o6p5Tw)
 * `GET /api/incidents/live`: Retrieves today's active (`on-going` or `investigating`) incidents.
 * `GET /api/incidents/archive/:yyyy/:mm/summary`: Provides a statistical breakdown of traffic patterns for a specific period.
 * `POST /api/advice`: Accepts a user query and returns structured travel advice with a "Probability of On-Time Arrival."

@@ -18,8 +18,8 @@ const incidentSchema = new mongoose.Schema({
     description: [
         {
             timestamp: {
-                type: Date
-                //default: Date.now
+                type: Date,
+                default: Date.now
             },
             text: {
                 type: String,
