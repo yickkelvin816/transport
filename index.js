@@ -4,7 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 // Internal modules
-const incidentRoute = require('./routes/incidentRoute_current');
+const incidentRoute = require('./routes/incidentRoute');
 const adviceRoute = require('./routes/adviceRoute');
 const Incident = require('./models/incident');
 const { deduplicateTrafficRecords } = require('./utils/optimiser');
